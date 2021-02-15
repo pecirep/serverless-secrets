@@ -1,0 +1,27 @@
+{
+  "name": "serverless-secrets",
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=4.0"
+  },
+  "description": "Upload secrets to SSM Parameter Store",
+  "author": "pecirep",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pecirep/serverless-secrets"
+  },
+  "keywords": [
+    "serverless",
+    "serverless plugin",
+    "s3",
+    "aws",
+    "amazon web services",
+    "serverless.com"
+  ],
+  "main": "index.js",
+  "dependencies": {
+    "js-yaml": "^4.0.0",
+    "lodash": "^4.17.20"
+  }
+}
