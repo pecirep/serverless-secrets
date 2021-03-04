@@ -56,6 +56,9 @@ class ServerlessSecretsPlugin {
                 this.serverless.cli.log(`- ${name} secret unchanged`, entity);
             }
         }));
+
+        //TODO delete removed secrets
+        //TODO write path to outputs
     }
 
     parseSecretsFile() {
@@ -102,8 +105,41 @@ class ServerlessSecretsPlugin {
         }
     }
 
-    removeDeployedSecrets() {
-        //TODO
+    async getPreviousSSMPath() {
+        const describeStackRequest = {
+            StackName: this.aws.naming.getStackName()
+        };
+        const describeStackResponse = await this.aws.request('CloudFormation', 'describeStacks', describeStackRequest);
+        const previousSSMPath = describeStackResponse.Stacks[0]?.Outputs?.find(o => o.OutputKey == "SsmBasePath")?.OutputValue; //TODO secretsSSMPath
+
+        if (DEBUG) this.serverless.cli.log(`CloudFormation DescribeStacks response: ${JSON.stringify(describeStackResponse)}`, entity);
+
+        return previousSSMPath;
+    }
+
+    async removeSecrets(names) {
+        const deleteParameterRequest = {
+            Names: Array.isArray(names) ? names : [names]
+        }
+        const deleteParameterResponse = await this.aws.request('SSM', 'deleteParameters', deleteParameterRequest);
+        if (DEBUG) this.serverless.cli.log(`SSM DeleteParameter response: ${JSON.stringify(deleteParameterResponse)}`, entity);
+    }
+
+    async removeDeployedSecrets() {
+        const ssmPath = await this.getPreviousSSMPath();
+        if (!ssmPath) return;
+
+        const listParametersRequest = {
+            Path: ssmPath + "/secrets", // TODO no need for "/secrets"
+            Recursive: true
+        }
+        const listParametersResponse = await this.aws.request('SSM', 'getParametersByPath', listParametersRequest);
+        const parameterNames = listParametersResponse.Parameters.map(o => o.Name);
+        if (DEBUG) this.serverless.cli.log(`SSM GetParametersByPath response: ${JSON.stringify(listParametersResponse)}`, entity);
+
+        this.removeSecrets(parameterNames);
+        this.serverless.cli.log(`Secrets in ${ssmPath} removed.`, entity);
+        return;
     }
 }
 
