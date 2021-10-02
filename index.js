@@ -48,7 +48,7 @@ class ServerlessSecretsPlugin {
         const secrets = this.parseSecretsFile();
 
         await Promise.all(Object.entries(secrets).map(async ([name, secret]) => {
-            if (await this.secretChanged(`${ssmPath}/${name}`, secret)) {
+            if (await this.secretChanged(ssmPath + name, secret)) {
                 this.serverless.cli.log(`- ${name} secret changed`, entity);
                 await this.pushSecret(ssmPath + name, secret);
                 this.serverless.cli.log(`  ${name} secret successfully upated`, entity);
