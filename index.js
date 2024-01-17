@@ -20,6 +20,7 @@ class ServerlessSecretsPlugin {
             'secrets:secrets': () => this.serverless.cli.log(this.commands.secrets.usage),
             'secrets:deploy:deploy': this.deploySecrets.bind(this),
             'secrets:remove:remove': this.removeDeployedSecrets.bind(this),
+            'secrets:pull:pull': this.pullDeployedSecrets.bind(this),
             'after:aws:deploy:deploy:updateStack': () => this.serverless.pluginManager.run(['secrets', 'deploy']),
             'before:remove:remove': () => this.serverless.pluginManager.run(['secrets', 'remove']),
         };
@@ -36,6 +37,10 @@ class ServerlessSecretsPlugin {
                     remove: {
                         usage: 'Remove secrets',
                         lifecycleEvents: ['remove']
+                    },
+                    pull: {
+                        usage: 'Download secrets to the local machine',
+                        lifecycleEvents: ['pull']
                     }
                 }
             }
@@ -140,6 +145,37 @@ class ServerlessSecretsPlugin {
         this.removeSecrets(parameterNames);
         this.serverless.cli.log(`Secrets in ${ssmPath} removed.`, entity);
         return;
+    }
+
+    async pullSecrets(path) {
+        const getParametersByPathRequest = {
+            Path: path,
+            Recursive: true,
+            WithDecryption: true
+        }
+
+        const getParametersByPathResponse = await this.aws.request('SSM', 'getParametersByPath', getParametersByPathRequest);
+        if (DEBUG) this.serverless.cli.log(`SSM GetParametersByPath response: ${JSON.stringify(getParametersByPathResponse)}`, entity);
+        return getParametersByPathResponse.Parameters;
+    }
+
+    async pullDeployedSecrets() {
+        const filePath = this.options.file
+
+        if (!filePath) throw 'Please specify a secrets file'
+
+        const ssmPath = this.options?.ssmPath || `/${this.serverless.service.service}-${this.serverless.service.provider.stage}/secrets/`
+        const rawSecrets = await this.pullSecrets(ssmPath);
+
+        const secretEntries = rawSecrets.map(secret => {
+            const name = secret.Name.replace(ssmPath, "")
+            const value = JSON.parse(secret.Value)
+            return [name, value]
+        });
+
+        const secrets = Object.fromEntries(secretEntries);
+
+        fs.writeFileSync(filePath, yaml.dump(secrets), 'utf-8')
     }
 }
 
